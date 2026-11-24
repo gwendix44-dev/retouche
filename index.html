@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Retouche — photo</title>
+<meta name="theme-color" content="#16191e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Retouche">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="home"><div class="wrap" id="homeBody"></div></div>
+<div id="app">
+  <header id="top">
+    <button class="ibtn" id="bHome" aria-label="Accueil"></button>
+    <div class="title" id="ttl"></div>
+    <button class="ibtn" id="bUndo" aria-label="Annuler"></button>
+    <button class="ibtn" id="bRedo" aria-label="Rétablir"></button>
+    <button class="ibtn" id="bCmp" aria-label="Avant / après"></button>
+    <button class="ibtn exp" id="bExp"></button>
+  </header>
+  <main id="stage">
+    <canvas id="gl"></canvas><canvas id="ov"></canvas>
+    <canvas id="histo" width="264" height="120"></canvas>
+    <div id="hud"><button class="chip" id="cZoom">Ajuster</button><button class="chip" id="cClip">Écrêtage</button></div>
+    <div id="hint"></div>
+    <div id="busy"><div class="bx"><div id="busyT">Chargement…</div><div class="bar"><i id="busyB"></i></div></div></div>
+  </main>
+  <section id="sheet">
+    <div id="tabrow"><div id="tabs"></div><button class="ibtn" id="bCol" aria-label="Replier"></button></div>
+    <div id="panel"></div>
+  </section>
+</div>
+<input type="file" id="file" accept="image/*,.cr2,.cr3,.crw,.dng,.nef,.arw,.raf,.orf,.rw2,.pef,.srw" multiple hidden>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
