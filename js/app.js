@@ -142,6 +142,29 @@ export async function openPhoto(file, record = null) {
   try { const d = await decodeFile(file, t => busy(true, t, 0.3)); await openDecoded(d, file, record); }
   catch (e) { console.error(e); busy(false); toast('Impossible d\'ouvrir : ' + (e.message || e), 6000); }
 }
+// Certains téléphones affichent noir (texture trop grande / flottants 16 bits). On vérifie le rendu et on se replie par étapes.
+function rendersBlack() {
+  try { const e = A.eng; e.renderPreview(A.st, { long: PREV(), forEdit: false }); const r = e.prev ? e.readSmall(e.prev, 96) : null; if (!r) return false; const d = r.data; for (let i = 0; i < d.length; i += 4) if (d[i] > 2 || d[i + 1] > 2 || d[i + 2] > 2) return false; return true; } catch (e) { return true; }
+}
+async function ensureVisible(P, d) {
+  await new Promise(r => setTimeout(r, 60));
+  if (!A.eng.srcTex) return;
+  let steps = 0;
+  const bm = d.bitmap; if (!rendersBlackOnLightPhoto(P)) return;
+  // 1) pipeline 8 bits
+  if (A.eng.fmt.half) { A.eng.fmt = { ifmt: A.eng.gl.RGBA8, type: A.eng.gl.UNSIGNED_BYTE, half: false }; A.eng.purge(); A.eng.invalidate(); if (!rendersBlackOnLightPhoto(P)) { redraw(1); toast('Mode compatible activé (8 bits).', 3500); return; } }
+  // 2) source réduite par paliers
+  let cur = P.bitmap; const long0 = Math.max(cur.width, cur.height);
+  for (const lim of [3600, 3000, 2400, 1800]) {
+    if (long0 <= lim) continue; steps++;
+    const k = lim / long0; const nb = await createImageBitmap(P.bitmap, { resizeWidth: Math.round(P.bitmap.width * k), resizeHeight: Math.round(P.bitmap.height * k), resizeQuality: 'high' });
+    A.eng.purge(); A.eng.loadSource(nb); P.w = nb.width; P.h = nb.height; A.eng.srcBitmap = nb; fit();
+    if (!rendersBlackOnLightPhoto(P)) { redraw(1); toast(`Photo affichée à ${nb.width}×${nb.height} : limite de la mémoire graphique de ce téléphone.`, 6000); return; }
+  }
+}
+function rendersBlackOnLightPhoto(P) { return rendersBlack() && !isBlackPhoto(P); }
+function isBlackPhoto(P) { try { const t = smallFrom(P.bitmap, 48); const d = t.data; let m = 0; for (let i = 0; i < d.length; i += 4) m = Math.max(m, d[i], d[i + 1], d[i + 2]); return m < 6; } catch { return false; } }
+
 export async function openDecoded(d, file, record = null) {
   try {
     busy(true, 'Préparation…', 0.6);
@@ -154,7 +177,7 @@ export async function openDecoded(d, file, record = null) {
     A.hist = { stack: [], idx: -1 }; A.hist.stack.push({ label: record ? 'Reprise de la retouche' : 'Photo ouverte', s: snap(), t: Date.now() }); A.hist.idx = 0;
     A.tab = 'auto'; A.zoomFit = true; lastCW = lastCH = 0;
     $('#ttl').textContent = P.name + (d.source === 'preview' ? ' — aperçu RAW' : ''); $('#home').classList.add('hide'); $('#app').classList.add('on');
-    syncAll(); fit(); busy(false);
+    syncAll(); fit(); await ensureVisible(P, d); busy(false);
     if (d.source === 'preview') toast('Décodage RAW indisponible : aperçu JPEG intégré utilisé (moins de marge de récupération).', 6000);
     else if (d.source === 'raw') toast(d.half16 ? 'RAW 16 bits chargé : marge de récupération maximale.' : 'RAW chargé (8 bits sur cet appareil).', 4000);
     runAnalysis(); DB.persist(); autosave();
