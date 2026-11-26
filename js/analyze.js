@@ -108,11 +108,11 @@ export function suggestions(m) {
   const T = m.T, items = []; const add = o => items.push(Object.assign({ sev: 0.5, why: [], effect: '' }, o));
   const evFor = (med, target) => clamp(Math.log2(lin(target) / lin(Math.max(med, 0.015))), -2.5, 2.5);
   const nonSkyMed = T.nonSky ? T.nonSky.med : T.p50;
-  const ref = m.night ? T.p50 : nonSkyMed;
-  const target = m.night ? 0.15 : 0.44;
-  let ev = evFor(ref, target);
-  if (m.night && T.p50 > 0.1) ev = clamp(ev, -0.3, 0.6);
-  if (Math.abs(ev) >= 0.25) {
+  // Jour : on juge sur la médiane globale, avec une zone « correcte » où on ne touche à rien
+  let ev;
+  if (m.night) { ev = evFor(T.p50, 0.15); if (T.p50 > 0.1) ev = clamp(ev, -0.3, 0.6); }
+  else { const lo = 0.36, hi = 0.60, p = T.p50; ev = p < lo ? evFor(p, lo) : p > hi ? evFor(p, hi) : 0; ev = clamp(ev, -1, 0.9); }
+  if (Math.abs(ev) >= (m.night ? 0.25 : 0.3)) {
     const under = ev > 0;
     const why = under ? ["La photo est sombre : la valeur médiane est basse.", m.night ? "C'est normal de nuit, mais les détails restent peu lisibles." : "Les détails du sujet se perdent dans l'ombre."] : ["La photo est trop claire : les tons moyens montent haut.", "Les nuances des zones claires s'écrasent."];
     add({ id: 'expo', group: 'exposure', tab: 'light', title: under ? 'Éclaircir la photo' : 'Assombrir la photo', sev: clamp(Math.abs(ev) / 2.2, 0.15, 1), why, effect: `Exposition ${ev > 0 ? '+' : ''}${f1(ev)} IL : les tons moyens vont vers un niveau naturel.`, set: { exposure: f1(ev) } });
@@ -126,19 +126,19 @@ export function suggestions(m) {
       add({ id: 'sky', group: 'sky', tab: 'zones', title: clipped ? 'Ciel brûlé : le récupérer' : 'Ciel trop lumineux', sev: clipped ? 0.85 : 0.55,
         why: ["Le fond est beaucoup plus clair que le reste.", clipped ? "Une partie du ciel est blanche pure : ce qui est brûlé ne revient pas, mais on peut l'adoucir." : "En éclaircissant le sujet, le ciel va brûler."],
         effect: `Zone Ciel : exposition ${f1(need)} IL et hautes lumières réduites. Le sujet n'est pas touché.`,
-        layer: { kind: 'sky', name: 'Ciel', params: { exposure: f1(need), highlights: -45, contrast: 8, dehaze: 10, saturation: 8 } } });
+        layer: { kind: 'sky', name: 'Ciel', params: { exposure: f1(need), highlights: -35, contrast: 6 } } });
     }
   }
   // sujet sombre / contre-jour
   if (T.subj && T.subj.frac > 0.01) {
     const subjAfter = T.subj.med * 1;
     const bright = T.sky ? T.sky.med - T.subj.med : T.p75 - T.subj.med;
-    if (!m.night && (T.subj.med < 0.34 || bright > 0.4)) {
-      const gain = clamp(Math.log2(lin(0.42) / lin(Math.max(subjAfter, 0.03))) - (Math.abs(ev) >= 0.25 ? ev : 0), 0.15, 2.0);
+    if (!m.night && T.subj.frac < 0.5 && T.subj.med < 0.3 && bright > 0.25) {
+      const gain = clamp(Math.log2(lin(0.42) / lin(Math.max(subjAfter, 0.03))) - (Math.abs(ev) >= 0.25 ? ev : 0), 0.15, 1.0);
       add({ id: 'subject', group: 'subject', tab: 'zones', title: bright > 0.4 ? 'Sujet sombre sur fond clair (contre-jour)' : 'Sujet trop sombre', sev: clamp(0.4 + bright, 0.5, 0.95),
         why: ["Le sujet est nettement plus sombre que l'arrière-plan.", "L'appareil a réglé la lumière sur le fond lumineux."],
         effect: `Zone Sujet : exposition +${f1(gain)} IL et ombres relevées. Le ciel reste intact.`,
-        layer: { kind: 'subject', name: 'Sujet', params: { exposure: f1(gain), shadows: 35, clarity: 12, texture: 10 } } });
+        layer: { kind: 'subject', name: 'Sujet', params: { exposure: f1(gain), shadows: 25 } } });
     }
   }
   // ombres bouchées (hors nuit)
@@ -166,7 +166,7 @@ export function suggestions(m) {
     const soft = m.sharp < 12;
     add({ id: 'sharp', group: 'sharp', tab: 'detail', title: soft ? 'Photo douce : manque de netteté' : 'Léger manque de netteté', sev: soft ? 0.55 : 0.35,
       why: ["Les contours sont peu marqués.", soft ? "Si le flou vient du mouvement ou de la mise au point, il reste limité : un détail absent ne s'invente pas." : "Un peu d'accentuation suffit."],
-      effect: `Netteté ${soft ? 70 : 45} et texture +${soft ? 25 : 15}, avec protection du grain.`, set: { sharpness: soft ? 70 : 45, texture: soft ? 25 : 15, sharpMask: Math.max(40, 0) } });
+      effect: `Netteté ${soft ? 42 : 28}${soft ? ' et texture +8' : ''}, douce, avec protection du grain.`, set: { sharpness: soft ? 42 : 28, texture: soft ? 8 : 0, sharpMask: 45 } });
   }
   // balance des blancs
   if (m.cast && !m.night && Math.abs(m.cast.rb) > 0.22) {
