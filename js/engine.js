@@ -204,14 +204,15 @@ export class Engine {
     ['h', 's', 'l'].forEach((k, a) => { for (let i = 0; i < 8; i++) { const v = ((hsl[k] || [])[i] || 0) / 100; arr[a * 8 + i] = v; if (v) on = 1; } });
     gl.uniform1fv(P.loc('uHSL[0]'), arr); gl.uniform1i(P.loc('uHslOn'), on);
     gl.uniform1i(P.loc('uCurveOn'), this.curveOn ? 1 : 0);
-    const L = this.layers || []; const la = new Float32Array(16), lb = new Float32Array(16), lc = new Float32Array(16);
+    const L = this.layers || []; const la = new Float32Array(16), lb = new Float32Array(16), lc = new Float32Array(16), lr = new Float32Array(16);
     L.slice(0, 4).forEach((l, i) => {
       const q = l.params || {}; const v = k => (q[k] || 0) / 100;
       la.set([q.exposure || 0, v('contrast'), v('highlights'), v('shadows')], i * 4);
       lb.set([v('temp'), v('tint'), v('saturation'), v('clarity')], i * 4);
       lc.set([v('sharpness'), v('dehaze'), v('texture'), v('vibrance')], i * 4);
+      lr.set([l._ref != null ? l._ref : 0.5, l.mask && l.mask.kind === 'subject' && l._ref != null ? 1 : 0, 0, 0], i * 4);
     });
-    gl.uniform4fv(P.loc('uLA[0]'), la); gl.uniform4fv(P.loc('uLB[0]'), lb); gl.uniform4fv(P.loc('uLC[0]'), lc);
+    gl.uniform4fv(P.loc('uLA[0]'), la); gl.uniform4fv(P.loc('uLB[0]'), lb); gl.uniform4fv(P.loc('uLC[0]'), lc); gl.uniform4fv(P.loc('uLR[0]'), lr);
     gl.uniform1i(P.loc('uLN'), Math.min(4, L.length)); gl.uniform1f(P.loc('uMaskOn'), L.length ? 1 : 0);
   }
 

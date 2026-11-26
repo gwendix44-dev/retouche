@@ -192,8 +192,8 @@ export async function runAnalysis() {
 // ---------- couches (zones) ----------
 const LNAMES = { sky: 'Ciel', subject: 'Sujet', ground: 'Sol', linear: 'Dégradé', radial: 'Radial', brush: 'Pinceau', wand: 'Sélection', all: 'Tout' };
 export function newLayer(kind, params = {}, name) {
-  const feather = { sky: 6, subject: 3, ground: 10, brush: 5, wand: 3 }[kind] || 0;
-  const mask = { kind, seeds: [], tol: 0.09, strokes: [], invert: false, feather, edge: kind === 'subject' ? -30 : 0 };
+  const feather = { sky: 6, subject: 2, ground: 10, brush: 5, wand: 3 }[kind] || 0;
+  const mask = { kind, seeds: [], tol: 0.09, strokes: [], invert: false, feather, edge: kind === 'subject' ? -50 : 0 };
   if (kind === 'linear') mask.grad = { x0: 0.5, y0: 0, x1: 0.5, y1: 0.45 };
   if (kind === 'radial') mask.rad = { cx: 0.5, cy: 0.5, rx: 0.3, ry: 0.22, rot: 0, feather: 0.55 };
   return { id: DB.uid(), name: name || LNAMES[kind], kind, visible: true, params: Object.assign({}, params), mask };
@@ -223,7 +223,7 @@ export function applyItem(it, quiet = false) {
   A.doneItems.add(it.id); syncAll(); if (!quiet) commit(it.title);
 }
 export function applyAuto() {
-  const items = (A.analysis ? A.analysis.items : []).filter(i => !i.info && !A.doneItems.has(i.id) && !A.skipItems.has(i.id) && i.sev >= 0.3 && i.id !== 'crop' && !i.layer);
+  const items = (A.analysis ? A.analysis.items : []).filter(i => !i.info && !A.doneItems.has(i.id) && !A.skipItems.has(i.id) && i.sev >= 0.3 && i.id !== 'crop' && (!i.layer || i.id === 'subject'));
   if (!items.length) { toast('Rien d\'important à corriger globalement. Regarde les zones (ciel, sujet) dans la liste.'); return 0; }
   items.forEach(i => applyItem(i, true)); commit('Correction en un geste'); return items.length;
 }

@@ -1,4 +1,4 @@
-const V = 'retouche-v3';
+const V = 'retouche-v4';
 const SHELL = ['./', 'index.html', 'css/app.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'js/main.js', 'js/app.js', 'js/panels.js', 'js/dialogs.js', 'js/engine.js', 'js/shaders.js', 'js/masks.js', 'js/params.js', 'js/analyze.js', 'js/export.js', 'js/store.js', 'js/raw.js', 'js/ui.js',
   'vendor/libraw/index.js', 'vendor/libraw/worker.js', 'vendor/libraw/libraw.js', 'vendor/libraw/libraw.wasm'];

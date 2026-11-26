@@ -127,7 +127,7 @@ uniform vec2 uOrigin; uniform float uScale;
 uniform mat3 uH; uniform vec2 uSrcSize; uniform vec2 uCropSize;
 uniform float uMaskOn; uniform int uLN;
 uniform vec4 uA, uB, uC, uD, uE;
-uniform vec4 uLA[4], uLB[4], uLC[4];
+uniform vec4 uLA[4], uLB[4], uLC[4], uLR[4];
 uniform float uHSL[24]; uniform int uHslOn; uniform int uCurveOn;
 const vec3 LW = vec3(0.2126, 0.7152, 0.0722);
 vec3 toLin(vec3 c){ c=max(c,0.0); return mix(c/12.92, pow((c+0.055)/1.055, vec3(2.4)), step(0.04045, c)); }
@@ -163,6 +163,7 @@ void main(){
     for (int i=0;i<4;i++){
       if (i >= uLN) break;
       float w = m[i];
+      if (uLR[i].y > 0.5) { float dl = abs(dot(c0, vec3(0.2126,0.7152,0.0722)) - uLR[i].x); w *= 1.0 - smoothstep(0.15, 0.35, dl); }
       ex += w*uLA[i].x; co += w*uLA[i].y; hi += w*uLA[i].z; sh += w*uLA[i].w;
       te += w*uLB[i].x; ti += w*uLB[i].y; sat += w*uLB[i].z; cla += w*uLB[i].w;
       shp += w*uLC[i].x; dhz += w*uLC[i].y; tex += w*uLC[i].z; vib += w*uLC[i].w;

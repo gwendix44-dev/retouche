@@ -287,8 +287,10 @@ export class MaskManager {
   // ajoute un segment de pinceau à une couche (rendu incrémental côté appelant)
   pack(layers) {
     const { mw, mh } = this; const out = new Uint8Array(mw * mh * 4); this.rc = this.rc || new Map();
-    layers.slice(0, 4).forEach((l, ch) => { const key = JSON.stringify(l.mask); let c = this.rc.get(l.id); if (!c || c.key !== key) { c = { key, v: this.render(l) }; this.rc.set(l.id, c); } const v = c.v; for (let i = 0; i < mw * mh; i++) out[i * 4 + ch] = Math.round(Math.min(1, Math.max(0, v[i])) * 255); });
+    layers.slice(0, 4).forEach((l, ch) => { const key = JSON.stringify(l.mask); let c = this.rc.get(l.id); if (!c || c.key !== key) { c = { key, v: this.render(l) }; c.ref = this.refLuma(c.v); this.rc.set(l.id, c); } Object.defineProperty(l, '_ref', { value: c.ref, writable: true, configurable: true, enumerable: false }); const v = c.v; for (let i = 0; i < mw * mh; i++) out[i * 4 + ch] = Math.round(Math.min(1, Math.max(0, v[i])) * 255); });
     return out;
   }
+  // luminance moyenne (encodage écran, 0..1) sous le cœur du masque : sert à écarter les pixels de bord contaminés par le fond
+  refLuma(v) { const g = this.guide; let a = 0, n = 0; for (let i = 0; i < v.length; i++) if (v[i] > 0.9) { a += 0.2126 * g[i * 4] + 0.7152 * g[i * 4 + 1] + 0.0722 * g[i * 4 + 2]; n++; } return n > 20 ? a / n / 255 : null; }
   stats(layer) { const v = this.render(layer); let a = 0; for (let i = 0; i < v.length; i++) a += v[i]; return a / v.length; }
 }

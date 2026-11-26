@@ -109,9 +109,13 @@ export function suggestions(m) {
   const evFor = (med, target) => clamp(Math.log2(lin(target) / lin(Math.max(med, 0.015))), -2.5, 2.5);
   const nonSkyMed = T.nonSky ? T.nonSky.med : T.p50;
   // Jour : on juge sur la médiane globale, avec une zone « correcte » où on ne touche à rien
+  const bxTouch = m.box ? [m.box.x0 < 0.01, m.box.x1 > 0.99, m.box.y0 < 0.01, m.box.y1 > 0.99].filter(Boolean).length : 0;
+  const subjOK = !!(T.subj && T.subj.frac > 0.01 && T.subj.frac < 0.4 && bxTouch < 3);
+  const subjBright = subjOK ? (T.sky ? T.sky.med - T.subj.med : T.p75 - T.subj.med) : 0;
+  const backlit = !m.night && subjOK && T.subj.med < 0.3 && subjBright > 0.25;
   let ev;
   if (m.night) { ev = evFor(T.p50, 0.15); if (T.p50 > 0.1) ev = clamp(ev, -0.3, 0.6); }
-  else { const lo = 0.36, hi = 0.60, p = T.p50; ev = p < lo ? evFor(p, lo) : p > hi ? evFor(p, hi) : 0; ev = clamp(ev, -1, 0.9); }
+  else { const lo = 0.36, hi = 0.60, p = T.p50; ev = p < lo ? evFor(p, lo) : p > hi ? evFor(p, hi) : 0; ev = clamp(ev, -1, 0.9); if (backlit && ev < 0) ev = 0; }
   if (Math.abs(ev) >= (m.night ? 0.25 : 0.3)) {
     const under = ev > 0;
     const why = under ? ["La photo est sombre : la valeur médiane est basse.", m.night ? "C'est normal de nuit, mais les détails restent peu lisibles." : "Les détails du sujet se perdent dans l'ombre."] : ["La photo est trop claire : les tons moyens montent haut.", "Les nuances des zones claires s'écrasent."];
@@ -130,11 +134,11 @@ export function suggestions(m) {
     }
   }
   // sujet sombre / contre-jour
-  if (T.subj && T.subj.frac > 0.01) {
+  if (subjOK) {
     const subjAfter = T.subj.med * 1;
-    const bright = T.sky ? T.sky.med - T.subj.med : T.p75 - T.subj.med;
-    if (!m.night && T.subj.frac < 0.5 && T.subj.med < 0.3 && bright > 0.25) {
-      const gain = clamp(Math.log2(lin(0.42) / lin(Math.max(subjAfter, 0.03))) - (Math.abs(ev) >= 0.25 ? ev : 0), 0.15, 1.0);
+    const bright = subjBright;
+    if (backlit) {
+      const gain = clamp(Math.log2(lin(0.42) / lin(Math.max(subjAfter, 0.03))) - (Math.abs(ev) >= 0.25 ? ev : 0), 0.15, 1.4);
       add({ id: 'subject', group: 'subject', tab: 'zones', title: bright > 0.4 ? 'Sujet sombre sur fond clair (contre-jour)' : 'Sujet trop sombre', sev: clamp(0.4 + bright, 0.5, 0.95),
         why: ["Le sujet est nettement plus sombre que l'arrière-plan.", "L'appareil a réglé la lumière sur le fond lumineux."],
         effect: `Zone Sujet : exposition +${f1(gain)} IL et ombres relevées. Le ciel reste intact.`,
@@ -152,10 +156,10 @@ export function suggestions(m) {
   }
   // contraste plat
   const range = T.p95 - T.p5;
-  if (!m.night && range < 0.55) add({ id: 'contrast', group: 'contrast', tab: 'light', title: 'Image plate : manque de contraste', sev: clamp((0.6 - range) * 2.2, 0.25, 0.8), why: ["L'écart entre les clairs et les sombres est faible.", "Les couleurs paraissent délavées."], effect: `Contraste +${range < 0.4 ? 28 : 18}, blancs et noirs étirés.`, set: { contrast: range < 0.4 ? 28 : 18, whites: 10, blacks: -8 } });
+  if (!m.night && range < 0.55 && Math.abs(ev) < 0.3) add({ id: 'contrast', group: 'contrast', tab: 'light', title: 'Image plate : manque de contraste', sev: clamp((0.6 - range) * 2.2, 0.25, 0.8), why: ["L'écart entre les clairs et les sombres est faible.", "Les couleurs paraissent délavées."], effect: `Contraste +${range < 0.4 ? 20 : 12}${T.p99 < 0.9 ? ', blancs légèrement étirés' : ''}.`, set: { contrast: (range < 0.4 && T.p95 < 0.85) ? 20 : 12, whites: T.p99 < 0.9 ? 6 : 0, blacks: T.p5 > 0.06 ? -5 : 0 } });
   // bruit
   if (m.sigma > 2.2) {
-    const nl = clamp(Math.round(m.sigma * 7.5), 15, 85), nc = clamp(Math.round(m.sigma * 9), 20, 90);
+    const boost = clamp(ev, 0, 2.5) * 8; const nl = clamp(Math.round(m.sigma * 7.5 + boost), 15, 90), nc = clamp(Math.round(m.sigma * 9 + boost), 20, 90);
     const lvl = m.sigma > 7 ? 'très fort' : m.sigma > 4.5 ? 'fort' : 'modéré';
     add({ id: 'noise', group: 'noise', tab: 'detail', title: `Bruit ${lvl}`, sev: clamp((m.sigma - 1.5) / 7, 0.3, 0.95),
       why: ["Du grain est visible dans les zones lisses.", m.night ? "La pose longue et les hauts ISO créent ce grain." : "Une photo sous-exposée remontée en post-traitement amplifie le grain."],
@@ -169,9 +173,9 @@ export function suggestions(m) {
       effect: `Netteté ${soft ? 42 : 28}${soft ? ' et texture +8' : ''}, douce, avec protection du grain.`, set: { sharpness: soft ? 42 : 28, texture: soft ? 8 : 0, sharpMask: 45 } });
   }
   // balance des blancs
-  if (m.cast && !m.night && Math.abs(m.cast.rb) > 0.22) {
-    const t = clamp(Math.round(-m.cast.rb * 55), -45, 45);
-    add({ id: 'wb', group: 'color', tab: 'color', title: m.cast.rb > 0 ? 'Dominante chaude' : 'Dominante froide', sev: clamp((Math.abs(m.cast.rb) - 0.15) * 2, 0.2, 0.6), why: ["Les gris moyens ne sont pas neutres.", "Hors ciel, la couleur penche vers " + (m.cast.rb > 0 ? "l'orange." : "le bleu.")], effect: `Température ${t > 0 ? '+' : ''}${t} pour neutraliser.`, set: { temp: t } });
+  if (m.cast && !m.night && Math.abs(m.cast.rb) > 0.3) {
+    const t = clamp(Math.round(-m.cast.rb * 40), -20, 20);
+    add({ id: 'wb', group: 'color', tab: 'color', title: m.cast.rb > 0 ? 'Dominante chaude' : 'Dominante froide', sev: clamp((Math.abs(m.cast.rb) - 0.3) * 1.5, 0.15, 0.28), why: ["Les gris moyens ne sont pas neutres.", "Hors ciel, la couleur penche vers " + (m.cast.rb > 0 ? "l'orange." : "le bleu.")], effect: `Température ${t > 0 ? '+' : ''}${t} pour neutraliser.`, set: { temp: t } });
   }
   // couleurs ternes
   if (!m.night && T.sat < 0.2) add({ id: 'vib', group: 'color', tab: 'color', title: 'Couleurs ternes', sev: 0.25, why: ["Les couleurs sont peu intenses."], effect: 'Vibrance +25 : seules les couleurs faibles sont renforcées.', set: { vibrance: 25, saturation: 4 } });
