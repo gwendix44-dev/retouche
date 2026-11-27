@@ -115,7 +115,9 @@ export function suggestions(m) {
   const backlit = !m.night && subjOK && T.subj.med < 0.3 && subjBright > 0.25;
   let ev;
   if (m.night) { ev = evFor(T.p50, 0.15); if (T.p50 > 0.1) ev = clamp(ev, -0.3, 0.6); }
-  else { const lo = 0.36, hi = 0.60, p = T.p50; ev = p < lo ? evFor(p, lo) : p > hi ? evFor(p, hi) : 0; ev = clamp(ev, -1, 0.9); if (backlit && ev < 0) ev = 0; }
+  else { const lo = 0.36, hi = 0.60, p = T.p50; ev = p < lo ? evFor(p, lo) : p > hi ? evFor(p, hi) : 0; ev = clamp(ev, -1, 0.9); if (backlit && ev < 0) ev = 0;
+    // photo « voilée » : les blancs n'atteignent jamais un vrai blanc (ex. jet blanc gris à la tombée du jour)
+    if (!backlit && T.p99 < 0.82 && T.hiClip < 0.002 && T.p5 < 0.2) { const st = clamp(evFor(T.p99, 0.9) * 0.85, 0, 0.9); if (st > ev) ev = st; } }
   if (Math.abs(ev) >= (m.night ? 0.25 : 0.3)) {
     const under = ev > 0;
     const why = under ? ["La photo est sombre : la valeur médiane est basse.", m.night ? "C'est normal de nuit, mais les détails restent peu lisibles." : "Les détails du sujet se perdent dans l'ombre."] : ["La photo est trop claire : les tons moyens montent haut.", "Les nuances des zones claires s'écrasent."];
@@ -178,7 +180,9 @@ export function suggestions(m) {
     add({ id: 'wb', group: 'color', tab: 'color', title: m.cast.rb > 0 ? 'Dominante chaude' : 'Dominante froide', sev: clamp((Math.abs(m.cast.rb) - 0.3) * 1.5, 0.15, 0.28), why: ["Les gris moyens ne sont pas neutres.", "Hors ciel, la couleur penche vers " + (m.cast.rb > 0 ? "l'orange." : "le bleu.")], effect: `Température ${t > 0 ? '+' : ''}${t} pour neutraliser.`, set: { temp: t } });
   }
   // couleurs ternes
-  if (!m.night && T.sat < 0.2) add({ id: 'vib', group: 'color', tab: 'color', title: 'Couleurs ternes', sev: 0.25, why: ["Les couleurs sont peu intenses."], effect: 'Vibrance +25 : seules les couleurs faibles sont renforcées.', set: { vibrance: 25, saturation: 4 } });
+  if (!m.night && T.sat < 0.27) add({ id: 'vib', group: 'color', tab: 'color', title: 'Couleurs ternes', sev: 0.25, why: ["Les couleurs sont peu intenses."], effect: 'Vibrance +25 : seules les couleurs faibles sont renforcées.', set: { vibrance: T.sat < 0.2 ? 25 : 16, saturation: 4 } });
+  // finition légère : toujours un peu de propreté et de piqué, sans excès
+  if (!m.night && !items.some(i => i.id === 'noise') && !items.some(i => i.id === 'sharp')) add({ id: 'finish', group: 'sharp', tab: 'detail', title: 'Finition : propreté et piqué', sev: 0.32, why: ["Une retouche douce lisse le grain résiduel et redonne du mordant aux contours."], effect: 'Bruit 18 / 25, netteté 32, texture +8, clarté +8.', set: { nrLum: 18, nrCol: 25, nrKeep: 55, sharpness: 32, sharpMask: 45, texture: 8, clarity: 8 } });
   // horizon
   if (m.tilt && Math.abs(m.tilt.angle) >= 0.5 && Math.abs(m.tilt.angle) <= 8 && m.tilt.share > 0.05) add({ id: 'tilt', group: 'frame', tab: 'geom', title: `Horizon penché (${f1(Math.abs(m.tilt.angle))}°)`, sev: clamp(Math.abs(m.tilt.angle) / 4, 0.2, 0.6), why: ["Une ligne dominante n'est pas horizontale.", "Une photo bien redressée paraît plus propre."], effect: `Redressement de ${f1(-m.tilt.angle)}° avec recadrage automatique.`, geom: { angle: f1(-m.tilt.angle) } });
   // cadrage
